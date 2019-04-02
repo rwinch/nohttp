@@ -14,20 +14,17 @@
  * limitations under the License.
  */
 
-plugins {
-	id 'java'
-	id 'org.springframework.boot' version '2.1.3.RELEASE'
-}
+package io.spring.nohttp.cli;
 
-apply plugin: 'io.spring.dependency-management'
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-repositories {
-	mavenCentral()
-}
-
-dependencies {
-	compile project(':nohttp')
-	compile 'info.picocli:picocli:3.9.5'
-	compile 'org.springframework.boot:spring-boot-starter'
-	testCompile 'org.springframework.boot:spring-boot-starter-test'
+/**
+ * @author Rob Winch
+ */
+@SpringBootApplication
+public class NoHttpCliMain {
+	public static void main(String[] args) {
+		SpringApplication.run(NoHttpCliMain.class, args);
+	}
 }
