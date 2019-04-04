@@ -43,6 +43,8 @@ import java.util.concurrent.Callable;
 public class NoHttpCheckstylePlugin implements Plugin<Project> {
 	public static final String CHECKSTYLE_CONFIGURATION_NAME = "checkstyle";
 
+	public static final String CHECKSTYLE_NOHTTP_TASK_NAME = "checkstyleNohttp";
+
 	public static final String DEFAULT_CONFIGURATION_NAME = "nohttp";
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
@@ -59,7 +61,12 @@ public class NoHttpCheckstylePlugin implements Plugin<Project> {
 		this.extension.setSource(project.fileTree(project.getProjectDir(), new Action<ConfigurableFileTree>() {
 			@Override
 			public void execute(ConfigurableFileTree files) {
-				files.exclude("**/build/**");
+				project.getGradle().allprojects(new Action<Project>() {
+					@Override
+					public void execute(Project project) {
+						files.exclude(project.getBuildDir().getAbsolutePath());
+					}
+				});
 				files.exclude(".git/**");
 				files.exclude(".gradle/**");
 				files.exclude(".idea/**");
@@ -84,8 +91,9 @@ public class NoHttpCheckstylePlugin implements Plugin<Project> {
 
 	private void createCheckstyleTaskForProject(Configuration configuration) {
 		Project project = this.project;
+		NoHttpExtension extension = this.extension;
 		Checkstyle checkstyleTask = project
-				.getTasks().create("nohttpCheckstyle", Checkstyle.class);
+				.getTasks().create("checkstyleNohttp", Checkstyle.class);
 
 		ConventionMapping taskMapping = checkstyleTask.getConventionMapping();
 		taskMapping.map("classpath", new Callable<FileCollection>() {
@@ -97,17 +105,17 @@ public class NoHttpCheckstylePlugin implements Plugin<Project> {
 		taskMapping.map("source", new Callable<FileTree>() {
 			@Override
 			public FileTree call() throws Exception {
-				return NoHttpCheckstylePlugin.this.extension.getSource();
+				return extension.getSource();
 			}
 		});
 		taskMapping.map("configProperties", new Callable<Map<String, Object>>() {
 			@Override
 			public Map<String, Object> call() throws Exception {
 				Map<String, Object> configProperties = new HashMap<>();
-				File defaultWhiteListFile = project.file("etc/nohttp/whitelist.lines");
-				if (defaultWhiteListFile.exists()) {
-					logger.debug("Using whitelist at {}", defaultWhiteListFile);
-					configProperties.put("nohttp.checkstyle.whitelistFileName", defaultWhiteListFile);
+				File whitelistsFile = extension.getWhitelistsFile();
+				if (whitelistsFile != null) {
+					logger.debug("Using whitelist at {}", whitelistsFile);
+					configProperties.put("nohttp.checkstyle.whitelistFileName", whitelistsFile);
 				}
 				return configProperties;
 			}
@@ -134,6 +142,7 @@ public class NoHttpCheckstylePlugin implements Plugin<Project> {
 			public void execute(DependencySet dependencies) {
 				NoHttpExtension extension = NoHttpCheckstylePlugin.this.extension;
 				dependencies.add(NoHttpCheckstylePlugin.this.project.getDependencies().create("io.spring.nohttp:nohttp-checkstyle:"  + extension.getToolVersion()));
+				dependencies.add(NoHttpCheckstylePlugin.this.project.getDependencies().create("io.spring.nohttp:nohttp:"  + extension.getToolVersion()));
 			}
 		});
 	}

@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
-buildscript {
-	repositories {
-		maven { url 'https://repo.spring.io/libs-snapshot' }
+package io.spring.nohttp.gradle;
+
+import org.gradle.api.Plugin;
+import org.gradle.api.Project;
+
+/**
+ * @author Rob Winch
+ */
+public class NoHttpPlugin implements Plugin<Project> {
+	@Override
+	public void apply(Project project) {
+		// FIXME: only apply if checkstyle applied
+		project.getPluginManager().apply(NoHttpCheckstylePlugin.class);
 	}
 }
-
-repositories {
-	maven { url 'https://repo.spring.io/libs-snapshot' }
-}
-
-apply plugin: 'io.spring.nohttp'
