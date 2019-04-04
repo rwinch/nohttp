@@ -22,15 +22,17 @@ import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.DependencySet;
 import org.gradle.api.file.ConfigurableFileTree;
+import org.gradle.api.file.FileCollection;
+import org.gradle.api.file.FileTree;
 import org.gradle.api.internal.ConventionMapping;
 import org.gradle.api.plugins.quality.Checkstyle;
+import org.gradle.api.plugins.quality.CheckstylePlugin;
 import org.gradle.api.resources.TextResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.net.URL;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -38,18 +40,42 @@ import java.util.concurrent.Callable;
 /**
  * @author Rob Winch
  */
-public class NoHttpPlugin implements Plugin<Project> {
+public class NoHttpCheckstylePlugin implements Plugin<Project> {
+	public static final String CHECKSTYLE_CONFIGURATION_NAME = "checkstyle";
+
+	public static final String DEFAULT_CONFIGURATION_NAME = "nohttp";
+
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	private Project project;
 
+	private NoHttpExtension extension;
+
 	@Override
 	public void apply(Project project) {
 		this.project = project;
-		project.getPluginManager().apply("checkstyle");
-		Configuration checkstyleConfiguration = project.getConfigurations().getByName("checkstyle");
+		this.extension = this.project.getExtensions().create(DEFAULT_CONFIGURATION_NAME, NoHttpExtension.class);
+		this.extension.setToolVersion("0.0.1.BUILD-SNAPSHOT");
+		this.extension.setSource(project.fileTree(project.getProjectDir(), new Action<ConfigurableFileTree>() {
+			@Override
+			public void execute(ConfigurableFileTree files) {
+				files.exclude("**/build/**");
+				files.exclude(".git/**");
+				files.exclude(".gradle/**");
+				files.exclude(".idea/**");
+				files.exclude("**/*.class");
+				files.exclude("**/*.jks");
+			}
+		}));
+		File defaultWhiteListFile = project.file("etc/nohttp/whitelist.lines");
+		if (defaultWhiteListFile.exists()) {
+			this.extension.setWhitelistsFile(defaultWhiteListFile);
+		}
 
-		Configuration noHttpConfiguration = project.getConfigurations().create("nohttp");
+		project.getPluginManager().apply(CheckstylePlugin.class);
+		Configuration checkstyleConfiguration = project.getConfigurations().getByName(CHECKSTYLE_CONFIGURATION_NAME);
+
+		Configuration noHttpConfiguration = project.getConfigurations().create(DEFAULT_CONFIGURATION_NAME);
 		checkstyleConfiguration.extendsFrom(noHttpConfiguration);
 
 		configureDefaultDependenciesForProject(noHttpConfiguration);
@@ -61,20 +87,19 @@ public class NoHttpPlugin implements Plugin<Project> {
 		Checkstyle checkstyleTask = project
 				.getTasks().create("nohttpCheckstyle", Checkstyle.class);
 
-		checkstyleTask.setSource(project.fileTree(project.getProjectDir(), new Action<ConfigurableFileTree>() {
-			@Override
-			public void execute(ConfigurableFileTree files) {
-				files.exclude("**/build/**");
-				files.exclude(".git/**");
-				files.exclude(".gradle/**");
-				files.exclude(".idea/**");
-				files.exclude("**/*.class");
-				files.exclude("**/*.jks");
-			}
-		}));
-		checkstyleTask.setClasspath(project.files());
-		checkstyleTask.setClasspath(configuration);
 		ConventionMapping taskMapping = checkstyleTask.getConventionMapping();
+		taskMapping.map("classpath", new Callable<FileCollection>() {
+			@Override
+			public FileCollection call() throws Exception {
+				return configuration;
+			}
+		});
+		taskMapping.map("source", new Callable<FileTree>() {
+			@Override
+			public FileTree call() throws Exception {
+				return NoHttpCheckstylePlugin.this.extension.getSource();
+			}
+		});
 		taskMapping.map("configProperties", new Callable<Map<String, Object>>() {
 			@Override
 			public Map<String, Object> call() throws Exception {
@@ -107,7 +132,8 @@ public class NoHttpPlugin implements Plugin<Project> {
 		configuration.defaultDependencies(new Action<DependencySet>() {
 			@Override
 			public void execute(DependencySet dependencies) {
-				dependencies.add(NoHttpPlugin.this.project.getDependencies().create("io.spring.nohttp:nohttp-checkstyle:0.0.1.BUILD-SNAPSHOT"));
+				NoHttpExtension extension = NoHttpCheckstylePlugin.this.extension;
+				dependencies.add(NoHttpCheckstylePlugin.this.project.getDependencies().create("io.spring.nohttp:nohttp-checkstyle:"  + extension.getToolVersion()));
 			}
 		});
 	}
