@@ -263,11 +263,13 @@ class NoHttpCheckstylePluginTest {
     fun configuredCheckstyleDefaultConfigDir() {
         val project = projectWithTempDirs()
                 .build()
+        val dir = project.file("config/nohttp").touch()
         project.pluginManager.apply(NoHttpCheckstylePlugin::class.java)
 
         val task: Checkstyle = project.tasks.findByName(NoHttpCheckstylePlugin.CHECKSTYLE_NOHTTP_TASK_NAME)!! as Checkstyle
 
-        assertThat(task.configProperties).containsEntry("config_loc", project.file("config/nohttp"))
+        assertThat(task.configDir).isEqualTo(dir)
+        assertThat(task.configProperties).containsEntry("config_loc", dir)
     }
 
     @Test

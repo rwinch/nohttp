@@ -175,6 +175,7 @@ public class NoHttpCheckstylePlugin implements Plugin<Project> {
 				return project.getResources().getText().fromUri(resource);
 			}
 		});
+		checkstyleTask.setConfigDir(this.project.provider(() -> getConfigLocation()));
 	}
 
 	private File getConfigLocation() {
