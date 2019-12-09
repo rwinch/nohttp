@@ -17,7 +17,6 @@
 package io.spring.nohttp.gradle
 
 import org.assertj.core.api.Assertions.assertThat
-import org.gradle.testfixtures.ProjectBuilder
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
@@ -33,6 +32,10 @@ class NoHttpCheckstylePluginITest {
     @Rule
     @JvmField
     val tempBuild = TemporaryFolder()
+
+    @Rule
+    @JvmField
+    val tempBuild2 = TemporaryFolder()
 
     @Test
     fun httpsIsSuccess() {
@@ -57,13 +60,39 @@ class NoHttpCheckstylePluginITest {
         assertThat(checkstyleNohttpTaskOutcome(result)).isEqualTo(TaskOutcome.FAILED);
     }
 
+    @Test
+    fun upToDate() {
+        buildFile()
+
+        tempBuild.newFile("has-https.txt")
+                .writeText("""https://example.com""")
+
+        runner().build()
+        val upToDateResult = runner().build()
+        assertThat(checkstyleNohttpTaskOutcome(upToDateResult)).isEqualTo(TaskOutcome.UP_TO_DATE);
+    }
+
+    // gh-31
+    @Test
+    fun upToDateWhenSwitchDirectories() {
+        buildFile()
+
+        tempBuild.newFile("has-https.txt")
+                .writeText("""https://example.com""")
+
+        runner().build()
+        tempBuild.root.copyRecursively(tempBuild2.root)
+        val upToDateResult = runner(tempBuild2.root).build()
+        assertThat(checkstyleNohttpTaskOutcome(upToDateResult)).isEqualTo(TaskOutcome.UP_TO_DATE);
+    }
+
     fun checkstyleNohttpTaskOutcome(build: BuildResult): TaskOutcome? {
         return build.task(":" + NoHttpCheckstylePlugin.CHECKSTYLE_NOHTTP_TASK_NAME)?.outcome
     }
 
-    fun runner(): GradleRunner {
+    fun runner(projectDir: File = tempBuild.root): GradleRunner {
         return GradleRunner.create()
-                .withProjectDir(tempBuild.root)
+                .withProjectDir(projectDir)
                 .withArguments(NoHttpCheckstylePlugin.CHECKSTYLE_NOHTTP_TASK_NAME, "--stacktrace")
                 .withPluginClasspath()
     }
